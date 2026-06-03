@@ -39,21 +39,54 @@
     top: 20px;
     right: 20px;
     background: var(--black);
-    padding: 15px 25px;
-    border-radius: 4px;
+    padding: 15px;
+    border-radius: 6px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     z-index: 1000;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     border: 1px solid #333;
+    width: 280px;
   }
-  .toolbar p { color: var(--gray); font-size: 12px; font-family: 'Roboto Mono', monospace;}
+  
+  .toolbar-title { color: var(--gray); font-size: 11px; font-family: 'Roboto Mono', monospace; text-align: center; text-transform: uppercase; letter-spacing: 1px;}
+
+  /* Панель форматирования текста */
+  .editor-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    background: #222;
+    padding: 8px;
+    border-radius: 4px;
+    justify-content: center;
+  }
+  
+  .editor-btn {
+    background: #333;
+    color: #fff;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .editor-btn:hover { background: var(--yellow); color: var(--black); }
+  .editor-divider { width: 1px; background: #444; margin: 0 2px; }
+
   .btn-download {
     background: var(--yellow);
     color: var(--black);
     border: none;
-    padding: 12px 20px;
+    padding: 14px 20px;
     font-family: 'Manrope', sans-serif;
     font-weight: 800;
     font-size: 14px;
@@ -61,6 +94,7 @@
     letter-spacing: 1px;
     cursor: pointer;
     transition: 0.2s;
+    border-radius: 4px;
   }
   .btn-download:hover { background: #e6bc00; }
 
@@ -71,12 +105,12 @@
     border-radius: 2px;
   }
   [contenteditable="true"]:hover {
-    background: rgba(255, 209, 0, 0.15);
-    box-shadow: 0 0 0 4px rgba(255, 209, 0, 0.15);
+    background: rgba(255, 209, 0, 0.1);
+    box-shadow: 0 0 0 4px rgba(255, 209, 0, 0.1);
   }
   [contenteditable="true"]:focus {
-    background: rgba(255, 209, 0, 0.25);
-    box-shadow: 0 0 0 4px rgba(255, 209, 0, 0.25);
+    background: rgba(255, 209, 0, 0.15);
+    box-shadow: 0 0 0 4px rgba(255, 209, 0, 0.15);
   }
 
   /* === ЛИСТ A4 === */
@@ -205,7 +239,26 @@
 
   <!-- Панель управления -->
   <div class="toolbar" data-html2canvas-ignore="true">
-    <p>Кликай на текст, чтобы изменить</p>
+    <div class="toolbar-title">Форматирование</div>
+    
+    <!-- Кнопки форматирования -->
+    <div class="editor-buttons">
+      <button class="editor-btn" onclick="formatText('bold')" title="Жирный"><b>B</b></button>
+      <button class="editor-btn" onclick="formatText('italic')" title="Курсив"><i>I</i></button>
+      <button class="editor-btn" onclick="formatText('underline')" title="Подчеркнутый"><u>U</u></button>
+      <button class="editor-btn" onclick="formatText('strikeThrough')" title="Зачеркнутый"><s>S</s></button>
+      <div class="editor-divider"></div>
+      <button class="editor-btn" onclick="formatText('justifyLeft')" title="По левому краю">↤</button>
+      <button class="editor-btn" onclick="formatText('justifyCenter')" title="По центру">↔</button>
+      <button class="editor-btn" onclick="formatText('justifyFull')" title="По ширине">≡</button>
+      <button class="editor-btn" onclick="formatText('justifyRight')" title="По правому краю">↦</button>
+      <div class="editor-divider"></div>
+      <!-- Кнопки размера шрифта -->
+      <button class="editor-btn" onclick="formatText('fontSize', 3)" title="Мелкий текст">A-</button>
+      <button class="editor-btn" onclick="formatText('fontSize', 4)" title="Обычный текст">A</button>
+      <button class="editor-btn" onclick="formatText('fontSize', 5)" title="Крупный текст">A+</button>
+    </div>
+
     <button class="btn-download" onclick="generatePDF()">Скачать PDF</button>
   </div>
 
@@ -236,7 +289,7 @@
         <div class="recipient">
           <div class="meta-label">Кому:</div>
           <div class="meta-value" contenteditable="true">
-            Генеральному директочару<br>
+            Генеральному директору<br>
             ООО «Компания Клиента»<br>
             Иванову И.И.
           </div>
@@ -279,26 +332,42 @@
     </div>
   </div>
 
-  <!-- Скрипт для генерации PDF -->
+  <!-- Скрипты -->
   <script>
+    // 1. Функция форматирования текста
+    function formatText(command, value = null) {
+      document.execCommand(command, false, value);
+      // Возвращаем фокус на документ, чтобы можно было продолжать печатать
+      document.getElementById('document').focus(); 
+    }
+
+    // 2. Очистка форматирования при вставке (Ctrl+V)
+    // Чтобы если менеджер скопировал текст из Ворда с красным цветом и шрифтом Arial, 
+    // он вставился чистым текстом и принял строгий дизайн УСМ
+    document.addEventListener("paste", function(e) {
+      e.preventDefault();
+      // Получаем чистый текст из буфера обмена
+      let text = (e.originalEvent || e).clipboardData.getData('text/plain');
+      // Вставляем его как текст, без стилей
+      document.execCommand('insertText', false, text);
+    });
+
+    // 3. Генерация PDF
     function generatePDF() {
       const element = document.getElementById('document');
       
-      // Настройки для библиотеки html2pdf
       const opt = {
         margin:       0,
         filename:     'USM_Document.pdf',
         image:        { type: 'jpeg', quality: 1 },
-        html2canvas:  { scale: 3, useCORS: true }, // scale: 3 делает шрифты очень четкими
+        html2canvas:  { scale: 3, useCORS: true }, 
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      // Меняем текст кнопки для обратной связи
       const btn = document.querySelector('.btn-download');
       const originalText = btn.innerText;
       btn.innerText = 'Генерация...';
 
-      // Генерируем и скачиваем
       html2pdf().set(opt).from(element).save().then(() => {
         btn.innerText = originalText;
       });
