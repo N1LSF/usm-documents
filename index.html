@@ -181,11 +181,17 @@
   /* === ТЕЛО ПИСЬМА === */
   .body-text {
     flex-grow: 1; /* Занимает всё свободное место */
-    font-size: 10pt;
+    font-size: 10pt; /* БАЗОВЫЙ РАЗМЕР */
     line-height: 1.7;
     text-align: justify;
   }
   .body-text div { margin-bottom: 4mm; }
+
+  /* ФИКС РАЗМЕРОВ ШРИФТА (принудительно уравниваем кнопки и базовый текст) */
+  font[size="2"] { font-size: 8.5pt !important; line-height: 1.5; }
+  font[size="3"] { font-size: 10pt !important; line-height: 1.7; } /* Строго совпадает с базовым 10pt */
+  font[size="4"] { font-size: 12pt !important; line-height: 1.5; }
+  font[size="5"] { font-size: 14pt !important; line-height: 1.4; }
 
   /* === ПОДПИСЬ === */
   .signature-block {
@@ -253,10 +259,11 @@
       <button class="editor-btn" onclick="formatText('justifyFull')" title="По ширине">≡</button>
       <button class="editor-btn" onclick="formatText('justifyRight')" title="По правому краю">↦</button>
       <div class="editor-divider"></div>
-      <!-- Кнопки размера шрифта -->
-      <button class="editor-btn" onclick="formatText('fontSize', 3)" title="Мелкий текст">A-</button>
-      <button class="editor-btn" onclick="formatText('fontSize', 4)" title="Обычный текст">A</button>
-      <button class="editor-btn" onclick="formatText('fontSize', 5)" title="Крупный текст">A+</button>
+      
+      <!-- Изменены значения кнопок, чтобы совпадать с нашими CSS стилями -->
+      <button class="editor-btn" onclick="formatText('fontSize', 2)" title="Мелкий текст">A-</button>
+      <button class="editor-btn" onclick="formatText('fontSize', 3)" title="Обычный текст (10pt)">A</button>
+      <button class="editor-btn" onclick="formatText('fontSize', 4)" title="Крупный текст">A+</button>
     </div>
 
     <button class="btn-download" onclick="generatePDF()">Скачать PDF</button>
@@ -342,8 +349,6 @@
     }
 
     // 2. Очистка форматирования при вставке (Ctrl+V)
-    // Чтобы если менеджер скопировал текст из Ворда с красным цветом и шрифтом Arial, 
-    // он вставился чистым текстом и принял строгий дизайн УСМ
     document.addEventListener("paste", function(e) {
       e.preventDefault();
       // Получаем чистый текст из буфера обмена
