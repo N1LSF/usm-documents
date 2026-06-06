@@ -4,25 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>УСМ — Генератор документов</title>
-
-<!-- Подключение строгих шрифтов -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
-
-<!-- Подключение библиотеки для генерации PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <style>
-  /* === БАЗА И ИНТЕРФЕЙС === */
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  
+
   body {
     background: #1a1a1a;
     font-family: 'Manrope', sans-serif;
-    display: flex;
-    justify-content: center;
-    padding: 40px 20px;
     color: #111;
   }
 
@@ -33,350 +25,624 @@
     --light-gray: #f4f4f4;
   }
 
-  /* Панель управления (не пойдет в печать) */
+  /* === ТУЛБАР === */
   .toolbar {
     position: fixed;
     top: 20px;
     right: 20px;
     background: var(--black);
-    padding: 15px;
-    border-radius: 6px;
+    padding: 12px 18px;
+    border-radius: 4px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     z-index: 1000;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     border: 1px solid #333;
-    width: 280px;
+    min-width: 200px;
   }
-  
-  .toolbar-title { color: var(--gray); font-size: 11px; font-family: 'Roboto Mono', monospace; text-align: center; text-transform: uppercase; letter-spacing: 1px;}
+  .toolbar p { color: var(--gray); font-size: 11px; font-family: 'Roboto Mono', monospace; }
 
-  /* Панель форматирования текста */
-  .editor-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    background: #222;
-    padding: 8px;
-    border-radius: 4px;
-    justify-content: center;
+  .toolbar-presets { display: flex; gap: 4px; }
+  .btn-preset {
+    background: #333; color: #ccc; border: 1px solid #555;
+    padding: 7px 10px; font-family: 'Manrope', sans-serif;
+    font-weight: 600; font-size: 11px; cursor: pointer;
+    transition: 0.2s; border-radius: 2px; flex: 1;
   }
-  
-  .editor-btn {
-    background: #333;
-    color: #fff;
-    border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-family: 'Roboto Mono', monospace;
-    font-size: 14px;
-    transition: 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .editor-btn:hover { background: var(--yellow); color: var(--black); }
-  .editor-divider { width: 1px; background: #444; margin: 0 2px; }
+  .btn-preset:hover { background: #444; color: #fff; }
+  .btn-preset.active { background: var(--yellow); color: var(--black); border-color: var(--yellow); }
 
   .btn-download {
-    background: var(--yellow);
-    color: var(--black);
-    border: none;
-    padding: 14px 20px;
-    font-family: 'Manrope', sans-serif;
-    font-weight: 800;
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: 0.2s;
-    border-radius: 4px;
+    background: var(--yellow); color: var(--black); border: none;
+    padding: 10px 16px; font-family: 'Manrope', sans-serif;
+    font-weight: 800; font-size: 13px; text-transform: uppercase;
+    letter-spacing: 1px; cursor: pointer; transition: 0.2s;
   }
   .btn-download:hover { background: #e6bc00; }
 
-  /* Подсветка редактируемых полей */
-  [contenteditable="true"] {
-    outline: none;
-    transition: background 0.2s, box-shadow 0.2s;
-    border-radius: 2px;
+  .btn-action {
+    background: transparent; color: #ccc; border: 1px dashed #555;
+    padding: 7px 10px; font-family: 'Manrope', sans-serif;
+    font-weight: 600; font-size: 11px; cursor: pointer;
+    transition: 0.2s; border-radius: 2px; width: 100%; text-align: center;
   }
-  [contenteditable="true"]:hover {
-    background: rgba(255, 209, 0, 0.1);
-    box-shadow: 0 0 0 4px rgba(255, 209, 0, 0.1);
-  }
-  [contenteditable="true"]:focus {
-    background: rgba(255, 209, 0, 0.15);
-    box-shadow: 0 0 0 4px rgba(255, 209, 0, 0.15);
-  }
+  .btn-action:hover { background: #333; color: #fff; border-color: #888; }
 
-  /* === ЛИСТ A4 === */
-  .page-wrapper {
-    width: 210mm;
-    height: 297mm; /* Строго А4 */
-    background: #ffffff;
-    position: relative;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  /* === МОДАЛКА === */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%; background: rgba(0,0,0,0.6);
+    z-index: 2000; justify-content: center; align-items: center;
   }
+  .modal-overlay.visible { display: flex; }
 
-  .page-content {
-    padding: 20mm 20mm 25mm 20mm;
-    height: 100%;
+  .modal-box {
+    background: #222; border: 1px solid #444; border-radius: 4px;
+    padding: 24px; color: #ccc; min-width: 280px;
+    font-family: 'Manrope', sans-serif;
+  }
+  .modal-box h3 { color: #fff; margin-bottom: 12px; font-size: 16px; }
+  .modal-box label { display: block; font-size: 12px; color: var(--gray); margin-bottom: 4px; }
+  .modal-box input[type="number"] {
+    width: 70px; background: #333; border: 1px solid #555; color: #fff;
+    padding: 6px 10px; font-size: 14px; border-radius: 2px;
+    font-family: 'Roboto Mono', monospace;
+  }
+  .modal-box input[type="text"] {
+    width: 100%; background: #333; border: 1px solid #555; color: #fff;
+    padding: 6px 10px; font-size: 13px; border-radius: 2px;
+    margin-bottom: 6px; font-family: 'Manrope', sans-serif;
+  }
+  .modal-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .modal-btns { display: flex; gap: 8px; margin-top: 16px; }
+  .btn-modal {
+    flex: 1; padding: 8px 0; font-family: 'Manrope', sans-serif;
+    font-weight: 600; font-size: 13px; border: none; border-radius: 2px; cursor: pointer;
+  }
+  .btn-modal.primary { background: var(--yellow); color: var(--black); }
+  .btn-modal.secondary { background: #333; color: #ccc; border: 1px solid #555; }
+
+  /* === ЗОНА ДОКУМЕНТА === */
+  .document-area {
     display: flex;
     flex-direction: column;
-    position: relative;
-    z-index: 2;
+    align-items: center;
+    padding: 40px 20px 80px;
+    gap: 20px;
+    margin-right: 240px; /* отступ под тулбар */
   }
 
-  /* Водяной знак УСМ (строгий геометричный) */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    background: #ffffff;
+    position: relative;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+    padding: 20mm 20mm 25mm 20mm;
+    overflow: visible;
+    page-break-after: always;
+  }
+
   .watermark {
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 200mm;
-    font-weight: 800;
-    color: rgba(0,0,0,0.02);
-    pointer-events: none;
-    z-index: 1;
+    font-size: 200mm; font-weight: 800;
+    color: rgba(0,0,0,0.02); pointer-events: none; z-index: 1;
     letter-spacing: -5px;
+  }
+
+  .page-inner {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column; min-height: 100%;
   }
 
   /* === ШАПКА === */
   .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    display: flex; justify-content: space-between; align-items: flex-start;
     margin-bottom: 10mm;
   }
   .logo { height: 16mm; width: auto; object-fit: contain; }
-  
   .header-contacts { text-align: right; font-family: 'Roboto Mono', monospace; font-size: 7.5pt; line-height: 1.6; }
-  .header-contacts strong { color: var(--black); font-family: 'Manrope', sans-serif; font-size: 8pt; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;}
-  .header-contacts .val { color: var(--gray); margin-bottom: 2mm;}
+  .header-contacts strong { color: var(--black); font-family: 'Manrope', sans-serif; font-size: 8pt; font-weight: 800; text-transform: uppercase; letter-spacing: -1px; }
+  .header-contacts .val { color: var(--gray); margin-bottom: 2mm; }
 
   .divider { width: 100%; height: 2px; background: var(--black); margin-bottom: 10mm; display: flex; }
   .divider::after { content: ''; width: 30%; height: 2px; background: var(--yellow); display: block; }
 
-  /* === МЕТА ДАННЫЕ (КОМУ / ДАТА) === */
+  /* === МЕТА === */
   .meta-block {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 12mm;
-    font-size: 9pt;
+    display: flex; justify-content: space-between; margin-bottom: 12mm; font-size: 9pt;
   }
   .meta-label {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 7pt;
-    color: var(--gray);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 2mm;
+    font-family: 'Roboto Mono', monospace; font-size: 7pt; color: var(--gray);
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2mm;
   }
   .meta-value { font-weight: 600; line-height: 1.5; }
   .doc-info { text-align: right; }
 
-  /* === ТЕЛО ПИСЬМА === */
+  /* === ТЕЛО ПИСЬМА / РЕДАКТОР === */
   .body-text {
-    flex-grow: 1; /* Занимает всё свободное место */
-    font-size: 10pt; /* БАЗОВЫЙ РАЗМЕР */
+    flex-grow: 1;
+    font-size: 10pt;
     line-height: 1.7;
     text-align: justify;
+    min-height: 80mm;
   }
-  .body-text div { margin-bottom: 4mm; }
+  .body-text p { margin-bottom: 3mm; }
 
-  /* ФИКС РАЗМЕРОВ ШРИФТА (принудительно уравниваем кнопки и базовый текст) */
-  font[size="2"] { font-size: 8.5pt !important; line-height: 1.5; }
-  font[size="3"] { font-size: 10pt !important; line-height: 1.7; } /* Строго совпадает с базовым 10pt */
-  font[size="4"] { font-size: 12pt !important; line-height: 1.5; }
-  font[size="5"] { font-size: 14pt !important; line-height: 1.4; }
+  /* Подсветка contenteditable */
+  [contenteditable="true"] {
+    outline: none; border-radius: 2px; transition: background 0.2s, box-shadow 0.2s;
+  }
+  [contenteditable="true"]:hover {
+    background: rgba(255, 209, 0, 0.12);
+    box-shadow: 0 0 0 3px rgba(255, 209, 0, 0.12);
+  }
+  [contenteditable="true"]:focus {
+    background: rgba(255, 209, 0, 0.20);
+    box-shadow: 0 0 0 3px rgba(255, 209, 0, 0.20);
+  }
 
   /* === ПОДПИСЬ === */
   .signature-block {
-    margin-top: auto;
-    padding-top: 10mm;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
+    margin-top: auto; padding-top: 10mm;
+    display: flex; justify-content: space-between; align-items: flex-end;
   }
   .sign-person { font-size: 9pt; }
-  .sign-name { font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1mm;}
+  .sign-name { font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1mm; }
   .sign-title { font-family: 'Roboto Mono', monospace; font-size: 7pt; color: var(--gray); }
-  
   .sign-line {
-    width: 60mm;
-    border-bottom: 1px solid var(--black);
-    position: relative;
+    width: 60mm; border-bottom: 1px solid var(--black); position: relative;
   }
   .sign-line::before {
-    content: 'подпись / печать';
-    position: absolute;
-    bottom: -5mm;
-    left: 0;
-    width: 100%;
-    text-align: center;
-    font-family: 'Roboto Mono', monospace;
-    font-size: 5pt;
-    color: var(--gray);
-    text-transform: uppercase;
+    content: 'подпись / печать'; position: absolute; bottom: -5mm; left: 0;
+    width: 100%; text-align: center; font-family: 'Roboto Mono', monospace;
+    font-size: 5pt; color: var(--gray); text-transform: uppercase;
   }
 
-  /* === СТРОГИЙ ГЕОМЕТРИЧНЫЙ ФУТЕР === */
+  /* === ФУТЕР === */
   .footer-decor {
-    position: absolute;
-    bottom: 0; left: 0;
-    width: 100%; height: 10mm;
-    display: flex;
+    position: absolute; bottom: 0; left: 0;
+    width: 100%; height: 10mm; display: flex;
   }
   .footer-black { background: var(--black); width: 80%; height: 100%; }
   .footer-yellow { background: var(--yellow); width: 20%; height: 100%; }
 
-  /* Скрываем интерфейс при печати */
+  /* === ТАБЛИЦА === */
+  .table-wrapper {
+    margin: 8mm 0;
+  }
+  .table-wrapper h3 {
+    font-size: 11pt; margin-bottom: 4mm; font-weight: 800;
+  }
+
+  .estimate-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 8pt; line-height: 1.4;
+  }
+
+  .estimate-table th {
+    background-color: #e6e6e6; padding: 3mm 2mm;
+    font-weight: 800; text-align: center; border: none;
+  }
+  .estimate-table th.text-left { text-align: left; }
+
+  .estimate-table td {
+    padding: 3mm 2mm; border-bottom: 1px solid #e6e6e6;
+    text-align: center; vertical-align: middle;
+  }
+  .estimate-table td.text-left { text-align: left; }
+  .estimate-table td.text-right { text-align: right; }
+
+  .estimate-table .totals-section td,
+  .estimate-table .totals-row td {
+    border-bottom: none; padding: 1mm 2mm; vertical-align: top;
+  }
+  .estimate-table .totals-row.main-total td {
+    font-weight: 800; padding-top: 5mm;
+  }
+  .estimate-table .totals-row.border-top td {
+    border-top: 1px solid var(--black); padding-top: 2mm; margin-top: 2mm;
+  }
+
+  /* === АНИМАЦИЯ ВСТАВКИ === */
+  @keyframes tableHighlight {
+    0% { box-shadow: 0 0 0 0px rgba(255, 209, 0, 0.6); }
+    100% { box-shadow: 0 0 0 8px rgba(255, 209, 0, 0); }
+  }
+  .table-wrapper.just-inserted {
+    animation: tableHighlight 0.8s ease-out;
+  }
+
+  /* === ПЕЧАТЬ === */
   @media print {
     body { background: white; padding: 0; }
     .toolbar { display: none; }
-    .page-wrapper { box-shadow: none; margin: 0; }
+    .modal-overlay { display: none; }
+    .document-area { margin-right: 0; padding: 0; gap: 0; }
+    .page { box-shadow: none; margin: 0; }
+  }
+
+  /* Скрываем тулбар и модалки из PDF через data-атрибут */
+  [data-html2canvas-ignore="true"] { }
+
+  /* === РЕЖИМ ЭКСПОРТА (выравнивает холст для PDF) === */
+  body.exporting .document-area {
+    margin: 0 !important;
+    padding: 0 !important;
+    align-items: flex-start !important;
+  }
+  body.exporting .page {
+    box-shadow: none !important;
+    margin: 0 !important;
   }
 </style>
 </head>
 <body>
 
-  <!-- Панель управления -->
+  <!-- ТУЛБАР -->
   <div class="toolbar" data-html2canvas-ignore="true">
-    <div class="toolbar-title">Форматирование</div>
-    
-    <!-- Кнопки форматирования -->
-    <div class="editor-buttons">
-      <button class="editor-btn" onclick="formatText('bold')" title="Жирный"><b>B</b></button>
-      <button class="editor-btn" onclick="formatText('italic')" title="Курсив"><i>I</i></button>
-      <button class="editor-btn" onclick="formatText('underline')" title="Подчеркнутый"><u>U</u></button>
-      <button class="editor-btn" onclick="formatText('strikeThrough')" title="Зачеркнутый"><s>S</s></button>
-      <div class="editor-divider"></div>
-      <button class="editor-btn" onclick="formatText('justifyLeft')" title="По левому краю">↤</button>
-      <button class="editor-btn" onclick="formatText('justifyCenter')" title="По центру">↔</button>
-      <button class="editor-btn" onclick="formatText('justifyFull')" title="По ширине">≡</button>
-      <button class="editor-btn" onclick="formatText('justifyRight')" title="По правому краю">↦</button>
-      <div class="editor-divider"></div>
-      
-      <!-- Изменены значения кнопок, чтобы совпадать с нашими CSS стилями -->
-      <button class="editor-btn" onclick="formatText('fontSize', 2)" title="Мелкий текст">A-</button>
-      <button class="editor-btn" onclick="formatText('fontSize', 3)" title="Обычный текст (10pt)">A</button>
-      <button class="editor-btn" onclick="formatText('fontSize', 4)" title="Крупный текст">A+</button>
+    <p>Пресет документа</p>
+    <div class="toolbar-presets">
+      <button class="btn-preset active" onclick="loadPreset('letter')">Письмо</button>
+      <button class="btn-preset" onclick="loadPreset('estimate')">Смета</button>
+      <button class="btn-preset" onclick="loadPreset('blank')">Пустой</button>
     </div>
-
+    <p style="margin-top:4px;">Форматирование текста</p>
+    <div class="toolbar-presets">
+      <button class="btn-preset" onclick="execCmd('bold')" title="Жирный (Ctrl+B)"><b>B</b></button>
+      <button class="btn-preset" onclick="execCmd('italic')" title="Курсив (Ctrl+I)"><i>I</i></button>
+      <button class="btn-preset" onclick="execCmd('underline')" title="Подчёркнутый (Ctrl+U)"><u>U</u></button>
+      <button class="btn-preset" onclick="execCmd('strikeThrough')" title="Зачёркнутый"><s>S</s></button>
+    </div>
+    <button class="btn-action" onclick="showTableDialog()">+ Вставить таблицу</button>
+    <p style="margin-top:4px;">Таблица — Ctrl+Z/Y работают</p>
+    <p style="font-size:10px;">Ctrl+B жирный, Ctrl+I курсив, Ctrl+Z отмена</p>
     <button class="btn-download" onclick="generatePDF()">Скачать PDF</button>
   </div>
 
-  <!-- Сам документ -->
-  <div class="page-wrapper" id="document">
-    <div class="watermark">УСМ</div>
-    
-    <div class="page-content">
-      
-      <!-- Шапка -->
-      <div class="header">
-        <img src="logo.png" alt="УСМ" class="logo">
-        <div class="header-contacts">
-          <strong>Телефон</strong>
-          <div class="val" contenteditable="true">+7 (812) 927-01-41</div>
-          <strong>Email / Сайт</strong>
-          <div class="val" contenteditable="true">usmontag@bk.ru / https://usmontage.ru</div>
-          <strong>Адрес</strong>
-          <div class="val" contenteditable="true">г. Вологда, ул. Козленская, д. 125</div>
-        </div>
+  <!-- МОДАЛКА: ВСТАВКА ТАБЛИЦЫ -->
+  <div class="modal-overlay" id="tableModal" data-html2canvas-ignore="true">
+    <div class="modal-box">
+      <h3>Новая таблица</h3>
+      <div class="modal-row">
+        <label>Колонок:</label>
+        <input type="number" id="colCount" value="6" min="1" max="12">
       </div>
-
-      <!-- Строгий разделитель -->
-      <div class="divider"></div>
-
-      <!-- Кому и Данные документа -->
-      <div class="meta-block">
-        <div class="recipient">
-          <div class="meta-label">Кому:</div>
-          <div class="meta-value" contenteditable="true">
-            Генеральному директору<br>
-            ООО «Компания Клиента»<br>
-            Иванову И.И.
-          </div>
-        </div>
-        <div class="doc-info">
-          <div class="meta-label">Документ № / Дата:</div>
-          <div class="meta-value" contenteditable="true">
-            Исх. № 145/23<br>
-            __ октября 202_ г.
-          </div>
-        </div>
+      <div class="modal-row">
+        <label>Строк данных:</label>
+        <input type="number" id="rowCount" value="3" min="1" max="50">
       </div>
-
-      <!-- Текст (кликабельный) -->
-      <div class="body-text" contenteditable="true">
-        <div><strong>Тема: Коммерческое предложение на проведение высотных работ</strong></div>
-        <br>
-        <div>Уважаемый Иван Иванович,</div>
-        <div>Компания ООО «УСМ» выражает вам свое почтение и предлагает рассмотреть настоящее коммерческое предложение на выполнение комплекса специальных монтажных работ на вашем объекте.</div>
-        <div>Наши специалисты обладают узкой экспертизой в сфере промышленного альпинизма и демонтажа металлоконструкций. В своей работе мы используем строгие стандарты качества и гарантируем безопасность на каждом этапе.</div>
-        <div>Стоимость работ, согласно предварительной смете, составляет 000 000 рублей. Сроки выполнения: 14 рабочих дней с момента подписания договора.</div>
-        <div>Готовы оперативно выехать на объект для финального согласования деталей. Надеемся на плодотворное сотрудничество.</div>
+      <label>Название этапа:</label>
+      <input type="text" id="stageName" value="1. Название этапа">
+      <div style="margin-top:8px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="addTotals" checked> Добавить блок итогов
+        </label>
       </div>
-
-      <!-- Строгая подпись без курсива -->
-      <div class="signature-block">
-        <div class="sign-person">
-          <div class="sign-name" contenteditable="true">А.А. Смирнов</div>
-          <div class="sign-title" contenteditable="true">Генеральный директор ООО «УСМ»</div>
-        </div>
-        <div class="sign-line"></div>
+      <div class="modal-btns">
+        <button class="btn-modal secondary" onclick="closeTableDialog()">Отмена</button>
+        <button class="btn-modal primary" onclick="insertTableFromDialog()">Вставить</button>
       </div>
-
-    </div>
-
-    <!-- Строгий геометрический подвал -->
-    <div class="footer-decor">
-      <div class="footer-black"></div>
-      <div class="footer-yellow"></div>
     </div>
   </div>
 
-  <!-- Скрипты -->
-  <script>
-    // 1. Функция форматирования текста
-    function formatText(command, value = null) {
-      document.execCommand(command, false, value);
-      // Возвращаем фокус на документ, чтобы можно было продолжать печатать
-      document.getElementById('document').focus(); 
-    }
+  <!-- ЗОНА ДОКУМЕНТА -->
+  <div class="document-area" id="document">
+    <div class="page" id="page1">
+      <div class="watermark">УСМ</div>
+      <div class="page-inner">
+        <div class="header">
+          <img src="logo.png" alt="УСМ" class="logo">
+          <div class="header-contacts">
+            <strong>Телефон</strong>
+            <div class="val" contenteditable="true">+7 (812) 927-01-41</div>
+            <strong>Email / Сайт</strong>
+            <div class="val" contenteditable="true">usmontag@bk.ru / https://usmontage.ru</div>
+            <strong>Адрес</strong>
+            <div class="val" contenteditable="true">г. Вологда, ул. Козленская, д. 125</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="meta-block">
+          <div class="recipient">
+            <div class="meta-label">Кому:</div>
+            <div class="meta-value" contenteditable="true">
+              Генеральному директору<br>
+              ООО «Компания Клиента»<br>
+              Иванову И.И.
+            </div>
+          </div>
+          <div class="doc-info">
+            <div class="meta-label">Документ № / Дата:</div>
+            <div class="meta-value" contenteditable="true">
+              Исх. № 145/23<br>
+              6 июня 2026 г.
+            </div>
+          </div>
+        </div>
 
-    // 2. Очистка форматирования при вставке (Ctrl+V)
-    document.addEventListener("paste", function(e) {
-      e.preventDefault();
-      // Получаем чистый текст из буфера обмена
-      let text = (e.originalEvent || e).clipboardData.getData('text/plain');
-      // Вставляем его как текст, без стилей
-      document.execCommand('insertText', false, text);
+        <div class="body-text" contenteditable="true" id="bodyText">
+          <p>Уважаемый Иван Иванович!</p>
+          <p>&nbsp;</p>
+          <p>ООО «УСМ» выражает Вам своё почтение и направляет сметную документацию на выполнение работ по расчистке участка от древесно-кустарниковой растительности на объекте.</p>
+          <p>Мы гарантируем соблюдение всех технических стандартов, норм промышленной безопасности, требований охраны окружающей среды и нормативных документов на всех этапах реализации проекта. Качество работ обеспечено опытом более 10 лет и штатом квалифицированных специалистов.</p>
+          <p>При возникновении дополнительных вопросов мы всегда открыты к диалогу и готовы обсудить детали сотрудничества.</p>
+          <p>С уважением и надеждой на долгосрочное партнёрство,</p>
+        </div>
+
+        <div class="signature-block">
+          <div class="sign-person">
+            <div class="sign-name" contenteditable="true">А.А. Смирнов</div>
+            <div class="sign-title" contenteditable="true">Генеральный директор ООО «УСМ»</div>
+          </div>
+          <div class="sign-line"></div>
+        </div>
+      </div>
+      <div class="footer-decor">
+        <div class="footer-black"></div>
+        <div class="footer-yellow"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// === DOM-элементы ===
+var bodyText = document.getElementById('bodyText');
+var documentArea = document.getElementById('document');
+var tableModal = document.getElementById('tableModal');
+
+function refreshBindings() {}
+
+// === PRESETS ===
+
+var LETTER_HTML = '<p>Уважаемый Иван Иванович!</p><p>&nbsp;</p><p>ООО «УСМ» выражает Вам своё почтение и направляет сметную документацию на выполнение работ по расчистке участка от древесно-кустарниковой растительности на объекте.</p><p>Мы гарантируем соблюдение всех технических стандартов, норм промышленной безопасности, требований охраны окружающей среды и нормативных документов на всех этапах реализации проекта. Качество работ обеспечено опытом более 10 лет и штатом квалифицированных специалистов.</p><p>При возникновении дополнительных вопросов мы всегда открыты к диалогу и готовы обсудить детали сотрудничества.</p><p>С уважением и надеждой на долгосрочное партнёрство,</p>';
+
+function makeTableHTML(colCount, rowCount, stageName, withTotals) {
+  var cols = [];
+  var defaultNames = ['Номер', 'Позиция', 'Ед. изм.', 'Кол-во', 'Цена, руб.', 'Стоимость, руб.'];
+  for (var i = 0; i < colCount; i++) {
+    cols.push(defaultNames[i] || ('Колонка ' + (i + 1)));
+  }
+
+  var headerCells = '';
+  for (var c = 0; c < colCount; c++) {
+    var cls = (c === 1 && colCount >= 2) ? 'text-left' : '';
+    headerCells += '<th class="' + cls + '" contenteditable="true">' + cols[c] + '</th>';
+  }
+
+  var dataRows = '';
+  for (var r = 1; r <= rowCount; r++) {
+    dataRows += '<tr>';
+    for (var c = 0; c < colCount; c++) {
+      var cls = '';
+      if (c === 1 && colCount >= 2) cls = 'text-left';
+      if (c >= colCount - 2 && colCount >= 3) cls = 'text-right';
+      var val = '';
+      if (c === 0) val = r;
+      else if (c === colCount - 2 && r === 1) val = '0';
+      else if (c === colCount - 1 && r === 1) val = '0';
+      dataRows += '<td class="' + cls + '" contenteditable="true">' + val + '</td>';
+    }
+    dataRows += '</tr>';
+  }
+
+  var totalsHTML = '';
+  if (withTotals) {
+    var leftPad = Math.max(1, colCount - 3);
+    totalsHTML =
+      '<tbody class="totals-section">' +
+      '  <tr class="totals-row main-total">' +
+      '    <td colspan="' + leftPad + '"></td>' +
+      '    <td colspan="2" class="text-left" contenteditable="true">Итого по этапу</td>' +
+      '    <td class="text-right" contenteditable="true">0</td>' +
+      '  </tr>' +
+      '  <tr class="totals-row main-total border-top">' +
+      '    <td colspan="' + leftPad + '"></td>' +
+      '    <td colspan="2" class="text-left" contenteditable="true">Итого по смете</td>' +
+      '    <td class="text-right" contenteditable="true">0</td>' +
+      '  </tr>' +
+      '</tbody>';
+  }
+
+  return '<div class="table-wrapper">' +
+    '<h3 contenteditable="true">' + stageName + '</h3>' +
+    '<table class="estimate-table">' +
+    '  <thead><tr>' + headerCells + '</tr></thead>' +
+    '  <tbody>' + dataRows + '</tbody>' +
+    totalsHTML +
+    '</table></div>';
+}
+
+var ESTIMATE_HTML = makeTableHTML(6, 3, '1. Расчистка участка', true);
+
+function setActivePresetButton(type) {
+  document.querySelectorAll('.btn-preset').forEach(function(b) { b.classList.remove('active'); });
+  var btn = document.querySelector('.btn-preset[onclick*="\'' + type + '\'"]');
+  if (btn) btn.classList.add('active');
+}
+
+function loadPreset(type) {
+  setActivePresetButton(type);
+  switch (type) {
+    case 'letter':
+      bodyText.innerHTML = LETTER_HTML;
+      break;
+    case 'estimate':
+      bodyText.innerHTML = ESTIMATE_HTML;
+      break;
+    case 'blank':
+      bodyText.innerHTML = '<p><br></p>';
+      break;
+  }
+  pushUndo();
+}
+
+// === FORMATTING (execCommand) ===
+
+function execCmd(cmd) {
+  bodyText.focus();
+  document.execCommand(cmd, false, null);
+}
+
+// === TABLE DIALOG ===
+
+function showTableDialog() {
+  tableModal.classList.add('visible');
+  document.getElementById('colCount').focus();
+}
+
+function closeTableDialog() {
+  tableModal.classList.remove('visible');
+}
+
+function insertTableFromDialog() {
+  var colCount = parseInt(document.getElementById('colCount').value) || 6;
+  var rowCount = parseInt(document.getElementById('rowCount').value) || 3;
+  var stageName = document.getElementById('stageName').value || '1. Название этапа';
+  var withTotals = document.getElementById('addTotals').checked;
+
+  colCount = Math.max(1, Math.min(12, colCount));
+  rowCount = Math.max(1, Math.min(50, rowCount));
+
+  var html = makeTableHTML(colCount, rowCount, stageName, withTotals);
+  insertHTMLAtCursor(html);
+  closeTableDialog();
+}
+
+function insertHTMLAtCursor(html) {
+  bodyText.focus();
+  var sel = window.getSelection();
+  var range;
+
+  if (sel.rangeCount > 0 && bodyText.contains(sel.anchorNode)) {
+    range = sel.getRangeAt(0);
+  } else {
+    range = document.createRange();
+    range.selectNodeContents(bodyText);
+    range.collapse(false);
+  }
+
+  var frag = document.createRange().createContextualFragment(html);
+  var wrapper = frag.querySelector('.table-wrapper');
+
+  range.deleteContents();
+  range.insertNode(frag);
+
+  if (wrapper) {
+    wrapper.classList.add('just-inserted');
+    setTimeout(function() { wrapper.classList.remove('just-inserted'); }, 800);
+  }
+
+  var newRange = document.createRange();
+  if (wrapper) {
+    newRange.setStartAfter(wrapper);
+  } else {
+    newRange.setStartAfter(range.endContainer);
+  }
+  newRange.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
+
+  bodyText.normalize();
+  pushUndo();
+}
+
+// === UNDO / REDO ===
+
+var undoStack = [];
+var redoStack = [];
+var MAX_UNDO = 200;
+var IGNORE_UNDO = false;
+
+function pushUndo() {
+  if (IGNORE_UNDO) return;
+  var html = bodyText.innerHTML;
+  if (undoStack.length > 0 && undoStack[undoStack.length - 1] === html) return;
+  undoStack.push(html);
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  redoStack = [];
+}
+
+function undo() {
+  if (undoStack.length <= 1) return;
+  IGNORE_UNDO = true;
+  var current = undoStack.pop();
+  redoStack.push(current);
+  bodyText.innerHTML = undoStack[undoStack.length - 1];
+  IGNORE_UNDO = false;
+}
+
+function redo() {
+  if (redoStack.length === 0) return;
+  IGNORE_UNDO = true;
+  var html = redoStack.pop();
+  undoStack.push(html);
+  bodyText.innerHTML = html;
+  IGNORE_UNDO = false;
+}
+
+bodyText.addEventListener('input', pushUndo);
+
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    undo();
+  }
+  if (e.ctrlKey && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+    e.preventDefault();
+    redo();
+  }
+});
+
+pushUndo();
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeTableDialog();
+});
+
+tableModal.addEventListener('click', function(e) {
+  if (e.target === tableModal) closeTableDialog();
+});
+
+// === PDF GENERATION ===
+
+function generatePDF() {
+  var element = document.getElementById('document');
+  var btn = document.querySelector('.btn-download');
+  var originalText = btn.innerText;
+
+  // Сброс скролла лечит обрезку верха
+  window.scrollTo(0, 0);
+
+  // Убираем отступы интерфейса
+  document.body.classList.add('exporting');
+  btn.innerText = 'Генерация...';
+
+  var opt = {
+    margin:       0,
+    filename:     'USM_Document.pdf',
+    image:        { type: 'jpeg', quality: 1 },
+    html2canvas:  {
+      scale: 2,
+      useCORS: true,
+      scrollY: 0,
+      scrollX: 0
+    },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  // Даем браузеру время применить стили перед рендером
+  setTimeout(function() {
+    html2pdf().set(opt).from(element).save().then(function() {
+      // Возвращаем сайт в нормальный вид
+      document.body.classList.remove('exporting');
+      btn.innerText = originalText;
     });
-
-    // 3. Генерация PDF
-    function generatePDF() {
-      const element = document.getElementById('document');
-      
-      const opt = {
-        margin:       0,
-        filename:     'USM_Document.pdf',
-        image:        { type: 'jpeg', quality: 1 },
-        html2canvas:  { scale: 3, useCORS: true }, 
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-
-      const btn = document.querySelector('.btn-download');
-      const originalText = btn.innerText;
-      btn.innerText = 'Генерация...';
-
-      html2pdf().set(opt).from(element).save().then(() => {
-        btn.innerText = originalText;
-      });
-    }
-  </script>
+  }, 100);
+}
+</script>
 </body>
 </html>
